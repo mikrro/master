@@ -19,7 +19,7 @@ static int __init init_fssuper(void)
 	struct super_block *sb;
 	struct block_device *bdev = NULL;
 	
-	printk(KERN_INFO "Start module from here");
+	printk(KERN_INFO "Start module from here\n");
 
 	if(dev == NULL) {
 		printk(KERN_ERR "Device not specified");
@@ -30,7 +30,7 @@ static int __init init_fssuper(void)
 	
 	if(IS_ERR(bdev)) {	
 		if(bdev == ERR_PTR(-EBUSY)) 
-			printk(KERN_ERR "Device busy");
+			printk(KERN_ERR "Device busyi\n");
 	
 		printk(KERN_ERR "Couldn't lock device <%ld>", PTR_ERR(bdev));
 		return 0;
@@ -44,8 +44,8 @@ static int __init init_fssuper(void)
 		return 0;
 	}
 	
-	printk(KERN_INFO "Sucessfuly loaded sb, uuid %x", *(sb->s_uuid));
-	printk(KERN_INFO "\nFile system : %s", sb->s_type->name);
+	printk(KERN_INFO "Sucessfuly loaded sb, uuid %x \n", *(sb->s_uuid));
+	printk(KERN_INFO "File system : %s", sb->s_type->name);
 	return 0;
 }
 
