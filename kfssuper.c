@@ -18,8 +18,10 @@ static int __init init_fssuper(void)
 
 	struct super_block *sb;
 	struct block_device *bdev = NULL;
-	
-	printk(KERN_INFO "Start module from here\t");
+	struct page *pg = NULL;
+	struct bio *bio = NULL;
+
+	printk(KERN_INFO "Start module from here\n");
 
 	if(dev == NULL) {
 		printk(KERN_ERR "Device not specified");
@@ -30,23 +32,24 @@ static int __init init_fssuper(void)
 	
 	if(IS_ERR(bdev)) {	
 		if(bdev == ERR_PTR(-EBUSY)) 
-			printk(KERN_ERR "Device busy\t");
+			printk(KERN_ERR "Device busyi\n");
 	
 		printk(KERN_ERR "Couldn't lock device <%ld>", PTR_ERR(bdev));
 		return 0;
 	}
+	pg = alloc_page(GFP_KERNEL);
 	
-	sb = get_super(bdev);
-	bdput(bdev);
+	//sb = kmalloc(sizeof(super_block), GFP_KERNEL);	
 	
-	if(IS_ERR(sb)) {
-		printk(KERN_ERR "Can't load sb <%ld>", PTR_ERR(sb));
+	if(!pg) {
+		printk(KERN_ERR "Can't alloc page memory");
 		return 0;
 	}
 	
-	printk(KERN_INFO "Sucessfuly loaded sb, uuid %x \t", *(sb->s_uuid));
-	printk(KERN_INFO "File system : %s \t", sb->s_type->name);
-	printk(KERN_INFO "Device: %x, super %x", bdev, sb);
+	bio = bio_alloc(GFP_NOIO, 1);
+
+	
+	free_page(pg);	
 	return 0;
 }
 
