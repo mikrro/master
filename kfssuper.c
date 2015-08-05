@@ -16,10 +16,11 @@ module_param(dev, charp, S_IRUGO | S_IWUSR);
 static int __init init_fssuper(void) 
 {
 
-	struct super_block *sb;
+//	struct super_block *sb;
 	struct block_device *bdev = NULL;
 	struct page *pg = NULL;
 	struct bio *bio = NULL;
+	int ret = 0;
 
 	printk(KERN_INFO "Start module from here\n");
 
@@ -38,18 +39,20 @@ static int __init init_fssuper(void)
 		return 0;
 	}
 	pg = alloc_page(GFP_KERNEL);
-	
-	//sb = kmalloc(sizeof(super_block), GFP_KERNEL);	
-	
-	if(!pg) {
-		printk(KERN_ERR "Can't alloc page memory");
+	bio = bio_alloc(GFP_NOIO, 1);
+	if (!pg || !bio) {
+		printk(KERN_ERR "Couldn't alloc page or bio");
 		return 0;
 	}
 	
-	bio = bio_alloc(GFP_NOIO, 1);
-
+	bio->bi_bdev = bdev;
+	printk(KERN_INFO "page %x, bio %x, bdev %x, bio dev %x", pg, bio, bdev, bio->bi_bdev);
+	printk(KERN_INFO ", bio flags  %x, bio rw %x, bio vec size %x", pg, bio->bi_flags, bio->bi_rw, bio->bi_vcnt);
+	ret = blkdev_get(bdev, FMODE_READ, init_fssuper);
+	printk(KERN_INFO "ret value %x",ret);
+//	bio_add_page(bio, pg, 4096, 0);
+//	submit_bio(READ | REQ_SYNC, bio);
 	
-	free_page(pg);	
 	return 0;
 }
 
