@@ -1,5 +1,5 @@
-obj-m      := fssuper.o
-lskfs-objs := fssuper.o
+obj-m      := kfssuper.o fssuper.o
+lskfs-objs := kfssuper.o fssuper.o
 
 KERNEL_SOURCE ?= /lib/modules/$(shell uname -r)/build
 

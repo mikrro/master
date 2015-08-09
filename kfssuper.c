@@ -3,9 +3,11 @@
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/blkdev.h>
+#include <linux/blk_types.h>
 #include <linux/pagemap.h>
 #include <linux/moduleparam.h>
 #include <asm/uaccess.h>
+#include <linux/raid/md_p.h>
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Hug");
@@ -13,13 +15,20 @@ MODULE_AUTHOR("Hug");
 static char* dev = NULL;
 module_param(dev, charp, S_IRUGO | S_IWUSR);
 
+static inline sector_t calc_dev_sboffset(struct block_device *bdev)
+{
+        sector_t num_sectors = i_size_read(bdev->bd_inode) / 512;
+        return MD_NEW_SIZE_SECTORS(num_sectors);
+}
+
 static int __init init_fssuper(void) 
 {
 
-//	struct super_block *sb;
+	struct super_block *sb;
 	struct block_device *bdev = NULL;
 	struct page *pg = NULL;
 	struct bio *bio = NULL;
+	int sb_size = 4096;
 	int ret = 0;
 
 	printk(KERN_INFO "Start module from here\n");
@@ -38,21 +47,41 @@ static int __init init_fssuper(void)
 		printk(KERN_ERR "Couldn't lock device <%ld>", PTR_ERR(bdev));
 		return 0;
 	}
-	pg = alloc_page(GFP_KERNEL);
+	
+	pg = alloc_page(GFP_NOIO);
 	bio = bio_alloc(GFP_NOIO, 1);
+	
 	if (!pg || !bio) {
 		printk(KERN_ERR "Couldn't alloc page or bio");
 		return 0;
 	}
 	
-	bio->bi_bdev = bdev;
-	printk(KERN_INFO "page %x, bio %x, bdev %x, bio dev %x", pg, bio, bdev, bio->bi_bdev);
-	printk(KERN_INFO ", bio flags  %x, bio rw %x, bio vec size %x", pg, bio->bi_flags, bio->bi_rw, bio->bi_vcnt);
-	ret = blkdev_get(bdev, FMODE_READ, init_fssuper);
-	printk(KERN_INFO "ret value %x",ret);
-//	bio_add_page(bio, pg, 4096, 0);
-//	submit_bio(READ | REQ_SYNC, bio);
+	bio->bi_bdev = blkdev_get_by_dev(bdev->bd_dev, FMODE_READ|FMODE_WRITE, NULL);
+	bio->bi_sector = 0;
+	bio->bi_vcnt = 1;
+	bio->bi_idx = 0;
+	bio->bi_size = sb_size;
+	bio->bi_io_vec[0].bv_page = pg;
+    	bio->bi_io_vec[0].bv_len = sb_size;
+    	bio->bi_io_vec[0].bv_offset = 0;
 	
+	bio_get(bio);
+	ret = submit_bio_wait(READ | REQ_SYNC, bio);
+	printk(KERN_INFO "ret value %x, flags %x\n", ret, bio->bi_flags);
+	
+	ret = test_bit(BIO_UPTODATE, &bio->bi_flags);
+	printk(KERN_INFO "ret value %x, flags %x\n", ret, bio->bi_flags);
+	
+	blkdev_put(bio->bi_bdev, FMODE_READ|FMODE_WRITE);	
+	//sb = page_address(pg);
+	bio_put(bio);
+	free_page(pg);	
+	//if(!sb) {
+	//	printk(KERN_ERR "Couldn't load sb");
+	//	return 0;
+	//}
+	//printk(KERN_INFO " UUID %x \n",sb->s_uuid);
+	//printk(KERN_INFO " MAGIC %x \n",sb->s_magic);
 	return 0;
 }
 
