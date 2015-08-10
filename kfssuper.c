@@ -15,10 +15,25 @@ MODULE_AUTHOR("Hug");
 static char* dev = NULL;
 module_param(dev, charp, S_IRUGO | S_IWUSR);
 
-static inline sector_t calc_dev_sboffset(struct block_device *bdev)
+static void calc_dev_sboffset(struct block_device *bdev)
 {
         sector_t num_sectors = i_size_read(bdev->bd_inode) / 512;
-        return MD_NEW_SIZE_SECTORS(num_sectors);
+        printk(KERN_INFO, "Sektor nums %ld", num_sectors);
+}
+
+static void io_end(struct bio* bio, int error) 
+{
+	printk(KERN_INFO "ret value %x, flags %x\n", error, bio->bi_flags);
+}
+
+static void test_flags(long unsigned int flags, int max)
+{
+	int i = 0;
+	for(; i < max+1; i++)
+	{ 	
+		if(test_bit(i, &flags)) 
+			printk(KERN_INFO "FLAG %d is set\n", i);
+	}
 }
 
 static int __init init_fssuper(void) 
@@ -26,6 +41,7 @@ static int __init init_fssuper(void)
 
 	struct super_block *sb;
 	struct block_device *bdev = NULL;
+	struct request_queue *q = NULL;
 	struct page *pg = NULL;
 	struct bio *bio = NULL;
 	int sb_size = 4096;
@@ -48,7 +64,7 @@ static int __init init_fssuper(void)
 		return 0;
 	}
 	
-	pg = alloc_page(GFP_NOIO);
+	pg = alloc_page(GFP_KERNEL);
 	bio = bio_alloc(GFP_NOIO, 1);
 	
 	if (!pg || !bio) {
@@ -56,32 +72,41 @@ static int __init init_fssuper(void)
 		return 0;
 	}
 	
-	bio->bi_bdev = blkdev_get_by_dev(bdev->bd_dev, FMODE_READ|FMODE_WRITE, NULL);
-	bio->bi_sector = 0;
-	bio->bi_vcnt = 1;
-	bio->bi_idx = 0;
-	bio->bi_size = sb_size;
-	bio->bi_io_vec[0].bv_page = pg;
-    	bio->bi_io_vec[0].bv_len = sb_size;
-    	bio->bi_io_vec[0].bv_offset = 0;
+	bio->bi_bdev = blkdev_get_by_dev(bdev->bd_dev, FMODE_READ, NULL);
+	bio->bi_iter.bi_sector = 16380;
+	bio->bi_end_io = io_end;	
+	//bio->bi_vcnt = 1;
+	//bio->bi_iter.bi_idx = 0;
+	//bio->bi_io_vec[0].bv_page = pg;
+	//bio->bi_io_vec[0].bv_len = sb_size;
+	//bio->bi_io_vec[0].bv_offset = 0;
+
+	bio_add_page(bio,pg,sb_size,0);
 	
-	bio_get(bio);
-	ret = submit_bio_wait(READ | REQ_SYNC, bio);
-	printk(KERN_INFO "ret value %x, flags %x\n", ret, bio->bi_flags);
+	if(!bio->bi_bdev) {
+		printk("Couldn't open device");
+		return 0;
+	}
 	
-	ret = test_bit(BIO_UPTODATE, &bio->bi_flags);
-	printk(KERN_INFO "ret value %x, flags %x\n", ret, bio->bi_flags);
+	q = bdev_get_queue(bio->bi_bdev);
+	if(!q)
+		return 0;
+	test_flags(q->queue_flags,22);
+	test_flags(bio->bi_flags,13);
 	
+	ret = submit_bio_wait(READ, bio);
+	printk(KERN_INFO "ret value %x\n", ret);
+	
+	test_flags(bio->bi_flags,13);
 	blkdev_put(bio->bi_bdev, FMODE_READ|FMODE_WRITE);	
-	//sb = page_address(pg);
+	sb = page_address(pg);
 	bio_put(bio);
-	free_page(pg);	
-	//if(!sb) {
-	//	printk(KERN_ERR "Couldn't load sb");
-	//	return 0;
-	//}
-	//printk(KERN_INFO " UUID %x \n",sb->s_uuid);
-	//printk(KERN_INFO " MAGIC %x \n",sb->s_magic);
+	if(!sb) {
+		printk(KERN_ERR "Couldn't load sb");
+		return 0;
+	}
+	printk(KERN_INFO " UUID %x \n",sb->s_uuid);
+	printk(KERN_INFO " MAGIC %x \n",sb->s_magic);
 	return 0;
 }
 
