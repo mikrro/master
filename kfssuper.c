@@ -64,24 +64,18 @@ static int __init init_fssuper(void)
 		return 0;
 	}
 	
-	pg = alloc_page(GFP_KERNEL);
 	bio = bio_alloc(GFP_NOIO, 1);
-	
-	if (!pg || !bio) {
+	if (ret || !bio) {
 		printk(KERN_ERR "Couldn't alloc page or bio");
 		return 0;
 	}
 	
+	ret = bio_alloc_pages(bio,GFP_KERNEL);
 	bio->bi_bdev = blkdev_get_by_dev(bdev->bd_dev, FMODE_READ, NULL);
-	bio->bi_iter.bi_sector = 16380;
+	bio->bi_iter.bi_sector = 98304;
 	bio->bi_end_io = io_end;	
-	//bio->bi_vcnt = 1;
-	//bio->bi_iter.bi_idx = 0;
-	//bio->bi_io_vec[0].bv_page = pg;
-	//bio->bi_io_vec[0].bv_len = sb_size;
-	//bio->bi_io_vec[0].bv_offset = 0;
 
-	bio_add_page(bio,pg,sb_size,0);
+//	bio_add_page(bio,pg,sb_size,0);
 	
 	if(!bio->bi_bdev) {
 		printk("Couldn't open device");
@@ -99,14 +93,14 @@ static int __init init_fssuper(void)
 	
 	test_flags(bio->bi_flags,13);
 	blkdev_put(bio->bi_bdev, FMODE_READ|FMODE_WRITE);	
-	sb = page_address(pg);
+	//sb = page_address(pg);
 	bio_put(bio);
-	if(!sb) {
-		printk(KERN_ERR "Couldn't load sb");
-		return 0;
-	}
-	printk(KERN_INFO " UUID %x \n",sb->s_uuid);
-	printk(KERN_INFO " MAGIC %x \n",sb->s_magic);
+	//if(!sb) {
+	//	printk(KERN_ERR "Couldn't load sb");
+	//	return 0;
+	//}
+	//printk(KERN_INFO " UUID %x \n",sb->s_uuid);
+	//printk(KERN_INFO " MAGIC %x \n",sb->s_magic);
 	return 0;
 }
 
